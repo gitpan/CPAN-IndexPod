@@ -1,5 +1,10 @@
 CHANGES file for CPAN::IndexPod
 
+0.23 Sat Sep 30 19:42:10 BST 2006
+  - move the underlying search engine to KinoSearch
+  - add POD test and POD coverage test
+  - fix tyops in pod 
+
 0.22 Fri Jul  2 15:14:41 IST 2004
   - first release
 

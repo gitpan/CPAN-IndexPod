@@ -2,66 +2,96 @@ package CPAN::IndexPod;
 use strict;
 use warnings;
 use File::Find::Rule;
-use Plucene::Simple;
+use KinoSearch;
+use KinoSearch::InvIndexer;
+use KinoSearch::Analysis::PolyAnalyzer;
+use KinoSearch::QueryParser::QueryParser;
+use KinoSearch::Searcher;
 use Pod::Simple;
 use Pod::Simple::PullParser;
 use base qw(Class::Accessor);
-__PACKAGE__->mk_accessors(qw(unpacked plucene));
+__PACKAGE__->mk_accessors(qw(unpacked kinosearch));
 
-our $VERSION = '0.22';
-
-sub new {
-  my $class = shift;
-  my $self = {};
-  bless $self, $class;
-  return $self;
-}
+our $VERSION = '0.24';
 
 sub search {
-  my $self = shift;
-  my $search = shift;
-  my $plucypath = $self->plucene;
+    my ( $self, $query_string ) = @_;
 
-  my $plucy = Plucene::Simple->open($plucypath);
-  return $plucy->search($search);
+    my $analyzer
+        = KinoSearch::Analysis::PolyAnalyzer->new( language => 'en' );
+
+    my $query_parser = KinoSearch::QueryParser::QueryParser->new(
+        analyzer       => $analyzer,
+        default_field  => 'value',
+        default_boolop => 'OR',
+    );
+    my $searcher = KinoSearch::Searcher->new(
+        invindex => $self->kinosearch,
+        analyzer => $analyzer,
+    );
+    my $query = $query_parser->parse($query_string);
+    my $hits = $searcher->search( query => $query );
+    $hits->seek( 0, 1000 );
+
+    my %scores;
+    while ( my $hit = $hits->fetch_hit_hashref ) {
+        my $filename = $hit->{key};
+        my $score    = $hit->{score};
+        $scores{$filename} = $score;
+    }
+
+    return sort { $scores{$b} <=> $scores{$a} || $a cmp $b } keys %scores;
 }
 
 sub index {
-  my $self = shift;
-  my $unpacked = $self->unpacked;
-  my $plucypath = $self->plucene;
+    my $self     = shift;
+    my $unpacked = $self->unpacked;
 
-  my $plucy = Plucene::Simple->open($plucypath);
+    my $analyzer
+        = KinoSearch::Analysis::PolyAnalyzer->new( language => 'en' );
+    my $invindexer = KinoSearch::InvIndexer->new(
+        invindex => $self->kinosearch,
+        create   => 1,
+        analyzer => $analyzer,
+    );
 
-  chdir($unpacked) || die "Could not chdir to $unpacked: $!";
+    $invindexer->spec_field( name => 'key', indexed => 0, vectorized => 0 );
+    $invindexer->spec_field( name => 'value', stored => 0, vectorized => 0 );
 
-  my $rule = File::Find::Rule->new;
-  my @files = $rule->file->in(".");
+    chdir($unpacked) || die "Could not chdir to $unpacked: $!";
 
-  foreach my $filename (@files) {
-    next if $filename =~ /\.svn/;
-    eval {
-      my $parser;
-      $parser = Pod::Simple::PullParser->new;
-      $parser->set_source($filename);
+    my $rule  = File::Find::Rule->new;
+    my @files = $rule->file->in(".");
 
-      my $title = $parser->get_title;
-      return unless $title;
+    foreach my $filename (@files) {
+        next if $filename =~ /\.svn/;
+        eval {
+            my $parser;
+            $parser = Pod::Simple::PullParser->new;
+            $parser->set_source($filename);
 
-      my $synopsis = $parser->_get_titled_section(
-       'SYNOPSIS',
-        max_token => 400,
-        max_content_length => 3_000,
-        desperate => 1,
-      );
+            my $title = $parser->get_title;
+            return unless $title;
 
-      my $description = $parser->get_description;
+            my $synopsis = $parser->_get_titled_section(
+                'SYNOPSIS',
+                max_token          => 400,
+                max_content_length => 3_000,
+                desperate          => 1,
+            );
 
-      $plucy->index_document($filename => "$title $synopsis $description");
-    };
-  }
+            my $description = $parser->get_description;
 
-  $plucy->optimize;
+            my $doc = $invindexer->new_doc;
+            $doc->set_value( key   => $filename );
+            $doc->set_value( value => "$title synopsis $description" );
+            $invindexer->add_doc($doc);
+
+            #      warn "added $filename => $title synopsis $description";
+        };
+    }
+
+    $invindexer->finish( optimize => 1 );
 }
 
 1;
@@ -71,16 +101,16 @@ __END__
 
 =head1 NAME
 
-CPAN::IndexPod - Index the POD from an upacked CPAN
+CPAN::IndexPod - Index the POD from an unpacked CPAN
 
 =head1 SYNOPSIS
 
   my $i = CPAN::IndexPod->new;
   $i->unpacked("/unpacked/cpan/); # use CPAN::Unpack
-  $i->plucene("/plucene/index);   # must be absolute path
+  $i->kinosearch("/kino/");   # must be absolute path
   $i->index;
 
-  # Then search with Plucene / Plucene::Simple or:
+  # Then search with:
   my @files = $i->search("vampire");
 
 =head1 DESCRIPTION
@@ -94,13 +124,27 @@ you to search it.
 Right now it allows simplistic searching of NAME, SYNOPSIS and
 DESCRIPTION sections and returns a list of filenames.
 
+=head1 METHODS
+
+=head2 new
+
+  my $i = CPAN::IndexPod->new;
+
+=head2 index
+
+  $i->index;
+
+=head2 search
+
+  my @files = $i->search("vampire");
+
 =head1 AUTHOR
 
 Leon Brocard <acme@astray.com>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004, Leon Brocard
+Copyright (C) 2004-6, Leon Brocard
 
 This module is free software; you can redistribute it or modify it under
 the same terms as Perl itself.

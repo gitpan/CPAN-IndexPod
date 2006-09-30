@@ -2,16 +2,16 @@
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-          'PL_FILES' => {},
-          'INSTALLDIRS' => 'site',
           'NAME' => 'CPAN::IndexPod',
           'VERSION_FROM' => 'lib/CPAN/IndexPod.pm',
           'PREREQ_PM' => {
-                           'Test::More' => 0,
-                           'File::Find::Rule' => 0,
-                           'Class::Accessor::Chained' => 0,
-                           'Plucene::Simple' => 0,
-                           'Pod::Simple' => 0
-                         }
+                           'Class::Accessor::Chained' => '0',
+                           'File::Find::Rule' => '0',
+                           'KinoSearch' => '0',
+                           'Pod::Simple' => '0',
+                           'Test::More' => '0'
+                         },
+          'INSTALLDIRS' => 'site',
+          'PL_FILES' => {}
         )
 ;

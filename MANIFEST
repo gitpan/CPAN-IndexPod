@@ -1,10 +1,12 @@
 Build.PL
+CHANGES
 lib/CPAN/IndexPod.pm
 Makefile.PL
-CHANGES
-META.yml
 MANIFEST			This list of files
+META.yml
 README
+t/pod.t
+t/pod_coverage.t
 t/simple.t
 t/unpacked/Acme-Buffy/buffy
 t/unpacked/Acme-Buffy/Changes
