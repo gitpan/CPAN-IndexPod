@@ -65,7 +65,7 @@ is_deeply(
 );
 
 is_deeply(
-    [ $i->search("redcarpet.png") ],
+    [ $i->search('redcarpet') ],
     [   'GraphViz/examples/redcarpet.pl', 'GraphViz/examples/ppmgraph.pl',
         'GraphViz/lib/GraphViz.pm',
     ],

@@ -12,7 +12,7 @@ use Pod::Simple::PullParser;
 use base qw(Class::Accessor);
 __PACKAGE__->mk_accessors(qw(unpacked kinosearch));
 
-our $VERSION = '0.24';
+our $VERSION = '0.25';
 
 sub search {
     my ( $self, $query_string ) = @_;
@@ -145,6 +145,8 @@ Leon Brocard <acme@astray.com>
 =head1 COPYRIGHT
 
 Copyright (C) 2004-6, Leon Brocard
+
+=head1 LICENSE
 
 This module is free software; you can redistribute it or modify it under
 the same terms as Perl itself.
